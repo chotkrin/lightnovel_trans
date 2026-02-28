@@ -1,0 +1,17 @@
+[project]
+name = "lightnovel-trans"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "datasets>=4.6.1",
+    "ebooklib>=0.20",
+    "ipykernel>=7.2.0",
+    "openai>=2.24.0",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.8.0",
+    "sentence-transformers>=5.2.3",
+    "vllm>=0.16.0",
+]
