@@ -64,10 +64,19 @@ async def fetch_passage_translation(sem, task_id, ja_chunk_text):
             content = re.sub(r'</?text_to_translate>', '', content)
             if "<think>" in content:
                 content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-            return task_id, content.strip()
+            
+            final_text = content.strip()
+            
+            ja_chars = re.findall(r'[\u3040-\u309F\u30A0-\u30FF]', final_text)
+            if len(ja_chars) > 3 or final_text == ja_chunk_text:
+                print(f"[Task ID: {task_id} 拦截]: 大模型再次输出日文")
+                return task_id, None
+                
+            return task_id, final_text
+            
         except Exception as e:
             print(f"[Task ID: {task_id} Failed]: {e}")
-            return task_id, None 
+            return task_id, None
 
 async def process_and_repair_book(book_id):
     epub_path = os.path.join(DATA_DIR, f"j{book_id}.epub")
@@ -197,17 +206,19 @@ async def process_and_repair_book(book_id):
         if translated_text and translated_text != info["ja_text"]:
             nodes, soup = info["nodes"], info["soup"]
             first_node = nodes[0]
-            first_node.clear()
+            
             for line in translated_text.split('\n'):
-                if line.strip():
-                    first_node.append(soup.new_string(line.strip()))
-                    first_node.append(soup.new_tag('br'))
-            if first_node.contents and getattr(first_node.contents[-1], 'name', None) == 'br':
-                first_node.contents[-1].extract()
-            for node in nodes[1:]:
-                if node.parent:
+                clean_line = line.strip()
+                if clean_line:
+                    new_p = soup.new_tag('p')
+                    new_p.string = clean_line
+                    first_node.insert_before(new_p)
+            
+            for node in nodes:
+                if node.parent is not None:
+                    node.name = 'span'
                     node.string = ""
-                    node['style'] = "display: none;" 
+                    node['style'] = "display: none;"
 
     for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
         item.set_content(str(item_to_soup[item.get_id()]).encode('utf-8'))

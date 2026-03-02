@@ -157,7 +157,6 @@ async def process_book(book_id):
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(translated_dict, f, ensure_ascii=False, indent=2)
 
-    print("Injecting translations and cleaning redundant nodes...")
     for info in translation_tasks_info:
         tid = info["task_id"]
         translated_text = translated_dict.get(tid, "")
@@ -167,22 +166,23 @@ async def process_book(book_id):
             soup = info["soup"]
             first_node = nodes[0]
             
-            first_node.clear()
+            # 1. 拆分翻译文本为多行
             lines = translated_text.split('\n')
-            for line in lines:
-                if line.strip():
-                    first_node.append(soup.new_string(line.strip()))
-                    first_node.append(soup.new_tag('br'))
             
-            if first_node.contents and getattr(first_node.contents[-1], 'name', None) == 'br':
-                first_node.contents[-1].extract()
+            # 2. 为每一行中文创建一个纯净的原生 <p> 标签，并依次插入到原文前面
+            for line in lines:
+                clean_line = line.strip()
+                if clean_line:
+                    new_p = soup.new_tag('p')
+                    new_p.string = clean_line
+                    # 插入到第一个日文节点之前，保证顺序绝对正确
+                    first_node.insert_before(new_p)
 
-            # Soft Delete
-            for node in nodes[1:]:
+            for node in nodes:
                 if node.parent is not None:
-                    node.string = ""  
-                    node['style'] = "display: none;" 
-
+                    node.name = 'span'  # 剥夺它作为段落的物理高度
+                    node.string = ""    # 掏空内容
+                    node['style'] = "display: none;" # 物理隐身
     # Finalize EPUB
     print("Finalizing EPUB structure...")
     for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
